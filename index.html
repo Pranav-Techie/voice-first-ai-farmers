@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Voice AI for Farmers</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f1f7f1;
+      text-align: center;
+      padding: 40px;
+      margin: 0;
+    }
+
+    h1 { color: #2e7d32; }
+
+    button {
+      padding: 14px 24px;
+      font-size: 16px;
+      background: #2e7d32;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    button:hover { background: #256628; }
+
+    #chatBox {
+      width: 70%;
+      margin: 30px auto;
+      background: white;
+      padding: 20px;
+      border-radius: 15px;
+      height: 300px;
+      overflow-y: auto;
+      text-align: left;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+
+    #status {
+      margin-top: 15px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>🌾 Voice-First AI for Farmers</h1>
+<p>Press the button and ask your question</p>
+
+<div style="margin-bottom:20px;">
+  <label>Select Language:</label>
+  <select id="language" style="padding:6px;">
+    <option value="en-IN">English</option>
+    <option value="hi-IN">Hindi</option>
+    <option value="mr-IN">Marathi</option>
+    <option value="gu-IN">Gujarati</option>
+    <option value="bn-IN">Bengali</option>
+  </select>
+</div>
+
+<button onclick="startListening()">🎤 Speak</button>
+
+<p id="status"></p>
+
+<div id="chatBox"></div>
+
+<div style="margin-top:20px;">
+  <input type="text" id="textInput"
+    placeholder="Or type your question..."
+    style="width:60%; padding:10px; border-radius:8px; border:1px solid #ccc;">
+  <button onclick="sendText()">Send</button>
+</div>
+
+<script>
+
+const LAMBDA_URL = "https://scaemzetqln4ggdoja4fs3dd5a0qrcyx.lambda-url.us-east-1.on.aws/";
+
+function startListening() {
+
+  const recognition = new webkitSpeechRecognition();
+  const selectedLang = document.getElementById("language").value;
+
+  recognition.lang = selectedLang;
+  recognition.start();
+
+  document.getElementById("status").innerText = "Listening... 🎧";
+
+  recognition.onresult = function(event) {
+    const text = event.results[0][0].transcript;
+    sendToAI(text);
+  };
+}
+
+function sendToAI(text) {
+
+  const chat = document.getElementById("chatBox");
+
+  chat.innerHTML += `<div><b>You:</b> ${text}</div>`;
+
+  document.getElementById("status").innerText = "Thinking... 🤖";
+
+  fetch(LAMBDA_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      spoken_text: text,
+      language: document.getElementById("language").value
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+
+    // Correct parsing (NO result.body)
+    if (!data || !data.answer) {
+      throw new Error("Invalid Lambda response");
+    }
+
+    chat.innerHTML += `
+      <div style="color:green;">
+        <b>AI:</b> ${data.answer}
+      </div><br>
+    `;
+
+    chat.scrollTop = chat.scrollHeight;
+
+    if (data.audio_base64) {
+      const audio = new Audio(
+        "data:audio/mp3;base64," + data.audio_base64
+      );
+      audio.play();
+    }
+
+    document.getElementById("status").innerText = "Answering... 🔊";
+  })
+  .catch(error => {
+    console.error(error);
+    document.getElementById("status").innerText = "Error connecting to AI ❌";
+  });
+}
+
+function sendText() {
+  const input = document.getElementById("textInput");
+  const text = input.value;
+
+  if (text.trim() === "") return;
+
+  sendToAI(text);
+  input.value = "";
+}
+
+</script>
+
+</body>
+</html>
